@@ -3,7 +3,7 @@ import numpy as np
 
 class Model(object):
 	"""RNN Model with ICA preprocessing"""
-	def __init__(self, arg):
+	def __init__(self, arg, trainable=False):
 		self.arg = arg
 
 		self.input_data = tf.placeholder(tf.float32, [arg.batch_size, arg.input_length])
@@ -27,7 +27,8 @@ class Model(object):
 		self.mappingW = tf.Variable(arg.num_units, 1)
 		self.pressure = tf.tanh(tf.matmul(self.mappingW, outputs))
 
-		if arg.trainable:
+		if trainable:
+			
 			self.loss = tf.squared_difference(self.pressure, self.label_data)
 			trainable_vars = tf.trainable_variables()
 			clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
