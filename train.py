@@ -43,7 +43,7 @@ def train(arg):
 		sess.run(tf.initialize_all_variables())
 
 		if arg.load is not None:
-			model.load(sess, arg.load)
+			model.load(sess, arg.load+'.model')
 
 		for it in xrange(arg.iter):
 			total_loss = 0.0
@@ -65,14 +65,14 @@ def train(arg):
 			print "Iteration {} with average loss {} and accuracy {}".format(it, total_loss / len(batch_input), np.sum(accuracy) / len(accuracy))
 			print 'Buy:{} Sell:{} Hold:{}'.format(buy,sell,hold)
 			if arg.save is not None:
-				model.save(sess, 'save/model/'+arg.save)
+				model.save(sess, arg.save+'.model')
 
 #=====================================================================================================================
 
 parser = argparse.ArgumentParser(description="Multilayer RNN trainer")
 parser.add_argument('-D', '--data', type=str, help='Historical price data file to be parsed', required=True)
 parser.add_argument('-L', '--load', type=str, default=None, help='Load existing model')
-parser.add_argument('-S', '--save', type=str, default=None, help='Model save name')
+parser.add_argument('-S', '--save', type=str, default=None, help='Model save package name')
 parser.add_argument('--iter', type=int, default=10, help='Maximum number of iterations')
 parser.add_argument('--batch_size', type=int, default=50)
 parser.add_argument('--num_units', type=int, default=400)
@@ -90,7 +90,7 @@ parser.add_argument('--price_epsilon', type=float, default=0.5)
 arg = parser.parse_args()
 
 if arg.verbose:
-	print 'Importing libraries...'
+	print 'Loading dependencies...'
 
 import data_parser
 import lstm
@@ -98,22 +98,27 @@ import tensorflow as tf
 import numpy as np
 import pickle
 from sklearn.metrics import accuracy_score
-import sys
+import os
 
 if arg.verbose:
-	print 'Finish importing'
+	print 'Finish loading dependencies'
 
 if arg.save is not None:
-	pickle.dump(arg, open('save/model/'+arg.save+'.cfg', 'wb'))
+	arg.save = 'save/'+arg.save
+	if not os.path.isdir(arg.save):
+		os.mkdir(arg.save)
+	pickle.dump(arg, open(arg.save+'.cfg', 'wb'))
+	if arg.verbose:
+		print 'Configuration saved at ' + arg.save
 
 if arg.load is not None:
-	if arg.verbose:
-		print 'Loading config from save/model/'+arg.load+'.cfg'
-	a = pickle.load(open('save/model/'+arg.load+'.cfg', 'rb'))
+	arg.load = 'save/'+arg.load
+	a = pickle.load(open(arg.load+'.cfg', 'rb'))
 	arg.num_units = a.num_units
 	arg.num_layers = a.num_layers
 	arg.input_length = a.input_length
 	arg.lstm = a.lstm
 	arg.price_epsilon = a.price_epsilon
-
+	if arg.verbose:
+			print 'Config loaded from ' + arg.load + '.cfg'
 train(arg)

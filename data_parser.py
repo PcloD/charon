@@ -53,3 +53,7 @@ def parse_swap(data_location):
         swap_total.append(data[i][1])
     return [swap_rate[::-1], swap_total[::-1]]  #reversing list since bfxdata gives out reversed data
 
+def write_label(label_file, price_file labels):
+    f = open(file, 'w')
+    data = [price_file, ','.join(labels)]
+    f.writelines(data)
