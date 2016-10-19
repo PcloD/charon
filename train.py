@@ -1,28 +1,12 @@
 from __future__ import division
-
 import argparse
-
-def get_data(arg, price):
-	x,y = [],[]
-	for i in xrange(arg.input_length, len(price) - 1):
-		x.append(price[i-arg.input_length:i])
-		y.append(2 if price[i+1] > (price[i] + arg.price_epsilon) else (1 if price[i+1] < (price[i] - arg.price_epsilon) else 0))
-	assert len(x) == len(y)
-	x = np.array(x)
-	y = np.array(y)
-	x = x - np.expand_dims(np.average(x, axis=1), axis=1)
-	overflow = x.shape[0] % arg.batch_size
-	x = np.delete(x, range(x.shape[0]-1-overflow, x.shape[0]-1), axis=0)
-	y = np.delete(y, range(y.shape[0]-1-overflow, y.shape[0]-1), axis=0)
-	num_bin = len(x) / arg.batch_size
-	return np.split(x, num_bin), np.split(y, num_bin)
 
 def train(arg):
 	model = lstm.Model(arg, trainable=True)
 
 	if arg.verbose:
 		print 'Loading training data...'
-	_, price, _, _ = data_parser.parse(arg.data)
+	_, price, _, _ = data_processor.parse(arg.data)
 	batch_input, batch_output = get_data(arg, price)
 
 	if arg.verbose:
@@ -65,7 +49,10 @@ def train(arg):
 			print "Iteration {} with average loss {} and accuracy {}".format(it, total_loss / len(batch_input), np.sum(accuracy) / len(accuracy))
 			print 'Buy:{} Sell:{} Hold:{}'.format(buy,sell,hold)
 			if arg.save is not None:
-				model.save(sess, arg.save+'.model')
+				if arg.save_freq != 0 and it % arg.save_freq:
+					model.save(sess, arg.save+'.model')
+		if arg.save is not None:
+			model.save(sess, arg.save+'.model')
 
 #=====================================================================================================================
 
@@ -80,6 +67,7 @@ parser.add_argument('--num_layers', type=int, default=2)
 parser.add_argument('--input_length', type=int, default=1)
 parser.add_argument('--learning_rate', type=float, default=0.1)
 parser.add_argument('--gradient_clip', type=float, default=5.0)
+parser.add_argument('--save_freq', type=int, default=0)
 parser.add_argument('-l', dest='lstm', action='store_true', help='Use LSTM')
 parser.add_argument('-g', dest='lstm', action='store_false', help='Use GRU (default)')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Verbose')
@@ -92,7 +80,7 @@ arg = parser.parse_args()
 if arg.verbose:
 	print 'Loading dependencies...'
 
-import data_parser
+import data_processor
 import lstm
 import tensorflow as tf
 import numpy as np
@@ -104,7 +92,7 @@ if arg.verbose:
 	print 'Finish loading dependencies'
 
 if arg.save is not None:
-	arg.save = 'save/'+arg.save
+	arg.save = 'save/{}/{}'.format(arg.save, arg.save)
 	if not os.path.isdir(arg.save):
 		os.mkdir(arg.save)
 	pickle.dump(arg, open(arg.save+'.cfg', 'wb'))
@@ -112,7 +100,7 @@ if arg.save is not None:
 		print 'Configuration saved at ' + arg.save
 
 if arg.load is not None:
-	arg.load = 'save/'+arg.load
+	arg.load = 'save/{}/{}'.format(arg.load, arg.load)
 	a = pickle.load(open(arg.load+'.cfg', 'rb'))
 	arg.num_units = a.num_units
 	arg.num_layers = a.num_layers

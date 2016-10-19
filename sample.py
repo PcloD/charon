@@ -10,13 +10,14 @@ parser.add_argument('-x', dest='execute', action='store_true', help='Execute tra
 parser.set_defaults(verbose=False, execute=False)
 arg = parser.parse_args()
 
-arg.load = 'save/'+arg.load
 import os
 import sys
-if not os.path.isdir(arg.load):
-	print 'Load file {} does not exist'.format(arg.load)
+if not os.path.isdir('save/'+arg.load):
+	print 'Load file {} does not exist'.format('save/'+arg.load)
 	sys.exit(-1)
 
+import pickle
+arg.load = 'save/{}/{}'.format(arg.load, arg.load)
 saved_arg = pickle.load(open(arg.load+'.cfg', 'rb'))
 saved_arg.data = arg.data
 saved_arg.load = arg.load
@@ -27,18 +28,17 @@ saved_arg.batch_size = 1
 if saved_arg.verbose:
 	print 'Loading dependencies...'
 import lstm
-import data_parser
+import data_processor
 import tensorflow as tf
 import numpy as np
-from train import get_data
 if saved_arg.verbose:
 	print 'Finish loading dependencies'
 
 if saved_arg.verbose:
 	print 'Loading data...'
-_,price,_,_ = data_parser.parse(saved_arg.data)
-batch_input,_ = get_data(arg, price)
-if arg.verbose:
+_,price,_,_ = data_processor.parse(saved_arg.data)
+batch_input,_ = data_processor.get_data(saved_arg, price)
+if saved_arg.verbose:
 	print 'Finish loading data...'
 
 model = lstm.Model(saved_arg, trainable=False)
@@ -48,5 +48,5 @@ with tf.Session() as sess:
 	predictions = []
 	for b in batch_input:
 		pred = np.argmax(model.step(sess,b), axis=1)
-		predictions.append(b)
-	data_parser.write_label(saved_arg.save, saved_arg.data, predictions)
+		predictions.append(int(pred[0]))
+	data_processor.write_label(saved_arg.save, saved_arg.data, predictions)

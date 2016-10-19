@@ -1,2 +1,3 @@
 *.pyc
 Data/Data/btceUSD.csv
+save/*/*
