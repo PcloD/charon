@@ -78,3 +78,19 @@ def get_data(arg, price):
     y = np.delete(y, range(y.shape[0]-1-overflow, y.shape[0]-1), axis=0)
     num_bin = len(x) / arg.batch_size
     return np.split(x, num_bin), np.split(y, num_bin)
+
+def get_label(price, hold=0, sell=1, buy=2):
+    labels = []
+    labels.append(1 if price[0] > price[1] else 2)
+    for i in xrange(1, len(price)+1):
+        action = 0
+        if price[i+1] > price[i]:
+            action = 2
+        else:
+            action = 1
+        if price[i+2] > price[i+1] and action = 2:
+            action = 0
+        elif price[i+2] < price[i+1] and action = 1:
+            action = 0
+
+        labels.append(action)

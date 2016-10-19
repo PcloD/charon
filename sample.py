@@ -31,6 +31,7 @@ import lstm
 import data_processor
 import tensorflow as tf
 import numpy as np
+import execute
 if saved_arg.verbose:
 	print 'Finish loading dependencies'
 
@@ -50,3 +51,5 @@ with tf.Session() as sess:
 		pred = np.argmax(model.step(sess,b), axis=1)
 		predictions.append(int(pred[0]))
 	data_processor.write_label(saved_arg.save, saved_arg.data, predictions)
+if arg.execute:
+	execute.strict_execute_points(saved_arg.save)

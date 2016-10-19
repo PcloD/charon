@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 
 class Model(object):
-	"""RNN Model with ICA preprocessing"""
 	def __init__(self, arg, trainable=False):
 		self.arg = arg
 		output_dim = 3
