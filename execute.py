@@ -14,8 +14,8 @@ def execute_points(file, input_length, hold=0, sell=1, buy=2):
 			btc += 1
 		if capital + btc*price[i] < 0:
 			print 'Dragdown at time {}: {}'.format(i, capital + btc * price[i])
-	print 'Final capital: {} BTC: {}'.format(capital, btc)
-	print 'Final equity: {}'.format(capital + btc * price[-1])
+	equity = capital + btc * price[-1]
+	print 'Final equity: {} ({}$ {}BTC)'.format(equity, capital, btc)
 
 	plt.plot(price)
 	bx, by, sx, sy = get_action_points(price, input_length, actions, sell, buy)
@@ -35,13 +35,14 @@ def strict_execute_points(file, input_length, initial=1000, hold=0, sell=1, buy=
 		elif actions[i] == 2 and capital - price[i] > 0:
 			capital -= price[i+input_length]
 			btc += 1
-	print 'Final capital: {} BTC: {}'.format(capital, btc)
-	print 'Final equity: {}'.format(capital + btc * price[-1])
+	equity = capital + btc * price[-1]
+	print 'Final equity: {} ({}$ {}BTC)'.format(equity, capital, btc)
+	print 'P/L: {}'.format(equity - initial)
 
 	plt.plot(price)
 	bx, by, sx, sy = get_action_points(price, input_length, actions, sell, buy)
-	plt.scatter(bx, by, c='green', s=50)
-	plt.scatter(sx, sy, c='red', s=50)
+	plt.scatter(bx, by, c='green', s=10)
+	plt.scatter(sx, sy, c='red', s=10)
 	plt.show()
 
 def get_action_points(price, input_length, actions, sell=1, buy=2):
@@ -57,5 +58,3 @@ def get_action_points(price, input_length, actions, sell=1, buy=2):
 			sell_x.append(i+input_length)
 			sell_y.append(price[i+input_length])
 	return buy_x, buy_y, sell_x, sell_y
-
-execute_points('save/output', 100)

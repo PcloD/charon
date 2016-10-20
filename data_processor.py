@@ -55,7 +55,7 @@ def parse_swap(data_location):
 
 def write_label(label_file, price_file, labels):
     f = open(label_file, 'w')
-    data = [price_file, ','.join(map(str,labels))]
+    data = [price_file+'\n', ','.join(map(str,labels))]
     f.writelines(data)
 
 def read_label(label_file):
@@ -65,10 +65,11 @@ def read_label(label_file):
     return price, map(int, data[1].split(','))
 
 def get_data(arg, price):
-    x,y = [],[]
+    x = []
     for i in xrange(arg.input_length, len(price) - 1):
         x.append(price[i-arg.input_length:i])
-        y.append(2 if price[i+1] > (price[i] + arg.price_epsilon) else (1 if price[i+1] < (price[i] - arg.price_epsilon) else 0))
+        # y.append(2 if price[i+1] > (price[i] + arg.price_epsilon) else (1 if price[i+1] < (price[i] - arg.price_epsilon) else 0))
+    y = get_label(price[arg.input_length:])
     assert len(x) == len(y)
     x = np.array(x)
     y = np.array(y)
@@ -82,15 +83,19 @@ def get_data(arg, price):
 def get_label(price, hold=0, sell=1, buy=2):
     labels = []
     labels.append(1 if price[0] > price[1] else 2)
-    for i in xrange(1, len(price)+1):
-        action = 0
+    action = labels[-1]
+    for i in xrange(1, len(price)-2):
         if price[i+1] > price[i]:
-            action = 2
+            if action == 2:
+                action = 0
+            else:
+                action = 2
         else:
-            action = 1
-        if price[i+2] > price[i+1] and action = 2:
-            action = 0
-        elif price[i+2] < price[i+1] and action = 1:
-            action = 0
+            if action == 1:
+                action = 0
+            else:
+                action = 1
 
         labels.append(action)
+    labels.append(1 if price[-2] > price[-1] else 2)
+    return labels

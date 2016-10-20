@@ -52,4 +52,5 @@ with tf.Session() as sess:
 		predictions.append(int(pred[0]))
 	data_processor.write_label(saved_arg.save, saved_arg.data, predictions)
 if arg.execute:
-	execute.strict_execute_points(saved_arg.save)
+	print 'Executing the sample...'
+	execute.strict_execute_points(saved_arg.save, saved_arg.input_length)

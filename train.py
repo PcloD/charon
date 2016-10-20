@@ -7,7 +7,7 @@ def train(arg):
 	if arg.verbose:
 		print 'Loading training data...'
 	_, price, _, _ = data_processor.parse(arg.data)
-	batch_input, batch_output = get_data(arg, price)
+	batch_input, batch_output = data_processor.get_data(arg, price)
 
 	if arg.verbose:
 		print 'Finish loading data'
@@ -92,9 +92,9 @@ if arg.verbose:
 	print 'Finish loading dependencies'
 
 if arg.save is not None:
+	if not os.path.isdir('save/'+arg.save):
+		os.mkdir('save/'+arg.save)
 	arg.save = 'save/{}/{}'.format(arg.save, arg.save)
-	if not os.path.isdir(arg.save):
-		os.mkdir(arg.save)
 	pickle.dump(arg, open(arg.save+'.cfg', 'wb'))
 	if arg.verbose:
 		print 'Configuration saved at ' + arg.save
