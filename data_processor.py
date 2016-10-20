@@ -53,49 +53,101 @@ def parse_swap(data_location):
         swap_total.append(data[i][1])
     return [swap_rate[::-1], swap_total[::-1]]  #reversing list since bfxdata gives out reversed data
 
-def write_label(label_file, price_file, labels):
+def write_label(label_file, price_file, labels, input_length):
     f = open(label_file, 'w')
-    data = [price_file+'\n', ','.join(map(str,labels))]
+    data = [price_file+'\n', input_length+'\n', ','.join(map(str,labels))]
     f.writelines(data)
 
 def read_label(label_file):
     f = open(label_file, 'r')
     data = f.readlines()
     _,price,_,_ = parse(data[0].strip('\n'))
-    return price, map(int, data[1].split(','))
+    return price, int(data[1].strip('\n')), map(int, data[2].split(','))
 
-def get_data(arg, price):
+def get_batch_data(arg, price):
     x = []
     for i in xrange(arg.input_length, len(price) - 1):
         x.append(price[i-arg.input_length:i])
-        # y.append(2 if price[i+1] > (price[i] + arg.price_epsilon) else (1 if price[i+1] < (price[i] - arg.price_epsilon) else 0))
     y = get_label(price[arg.input_length:])
     assert len(x) == len(y)
     x = np.array(x)
     y = np.array(y)
-    x = x - np.expand_dims(np.average(x, axis=1), axis=1)
+    x = x - np.expand_dims(np.average(x, axis=1), axis=1)   #centering
     overflow = x.shape[0] % arg.batch_size
     x = np.delete(x, range(x.shape[0]-1-overflow, x.shape[0]-1), axis=0)
     y = np.delete(y, range(y.shape[0]-1-overflow, y.shape[0]-1), axis=0)
     num_bin = len(x) / arg.batch_size
     return np.split(x, num_bin), np.split(y, num_bin)
 
-def get_label(price, hold=0, sell=1, buy=2):
+def get_label_simple(price, hold=0, sell=1, buy=2):
     labels = []
-    labels.append(1 if price[0] > price[1] else 2)
+    labels.append(sell if price[0] > price[1] else buy)
     action = labels[-1]
     for i in xrange(1, len(price)-2):
         if price[i+1] > price[i]:
-            if action == 2:
-                action = 0
+            if action == buy:
+                action = hold
             else:
-                action = 2
+                action = buy
         else:
-            if action == 1:
-                action = 0
+            if action == sell:
+                action = hold
             else:
-                action = 1
+                action = sell
 
         labels.append(action)
     labels.append(1 if price[-2] > price[-1] else 2)
     return labels
+
+def get_label(price, price_epsilon, hold=0, sell=1, buy=2):
+    ex = local_extrema(price)
+    # consider the intervals, remove the intervals that are smaller than price_epsilon
+    i = 0
+    while True:
+        if i >= len(ex) - 1:
+            break
+
+        dif = abs(price[ex[i+1]] - price[ex[i]])
+        if dif < price_epsilon:
+            if i == 0:
+                del ex[i+1]
+                continue
+            if i+1 == len(ex) - 1:
+                del ex[i]
+            leftdif = abs(price[ex[i-1]] - price[ex[i]])
+            rightdif = abs(price[ex[i+2]] - price[ex[i+1]])
+            if leftdif > rightdif:
+                del ex[i+1]
+            else:
+                del ex[i]
+        else:
+            i += 1
+    inc = price[0] < price[1]
+    labels = []
+    exi = 0
+    for i in xrange(len(price)):
+        if i == ex[exi]:
+            labels.append(buy if inc else sell)
+            exi += 1
+            inc = not inc
+        else:
+            labels.append(hold)
+
+    return labels
+
+def local_extrema(price):
+    """Return the indices of local extrema of the price sequence"""
+    local=[]
+    local.append(0)
+    inc = price[0] < price[1]
+    for i in xrange(1, len(price)-1):
+        if inc:
+            if price[i+1] < price[i]:
+                local.append(i)
+                inc = False
+        else:
+            if price[i+1] > price[i]:
+                local.append(i)
+                inc = True
+    local.append(len(price)-1)
+    return local

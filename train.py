@@ -7,7 +7,7 @@ def train(arg):
 	if arg.verbose:
 		print 'Loading training data...'
 	_, price, _, _ = data_processor.parse(arg.data)
-	batch_input, batch_output = data_processor.get_data(arg, price)
+	batch_input, batch_output = data_processor.get_batch_data(arg, price)
 
 	if arg.verbose:
 		print 'Finish loading data'

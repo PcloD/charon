@@ -38,7 +38,7 @@ if saved_arg.verbose:
 if saved_arg.verbose:
 	print 'Loading data...'
 _,price,_,_ = data_processor.parse(saved_arg.data)
-batch_input,_ = data_processor.get_data(saved_arg, price)
+batch_input,_ = data_processor.get_batch_data(saved_arg, price)
 if saved_arg.verbose:
 	print 'Finish loading data...'
 
@@ -50,7 +50,7 @@ with tf.Session() as sess:
 	for b in batch_input:
 		pred = np.argmax(model.step(sess,b), axis=1)
 		predictions.append(int(pred[0]))
-	data_processor.write_label(saved_arg.save, saved_arg.data, predictions)
+	data_processor.write_label(saved_arg.save, saved_arg.data, predictions, saved_arg.input_length)
 if arg.execute:
 	print 'Executing the sample...'
-	execute.strict_execute_points(saved_arg.save, saved_arg.input_length)
+	execute.strict_execute_points(saved_arg.save)
