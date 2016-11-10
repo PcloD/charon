@@ -10,12 +10,12 @@ class Model(object):
 		self.label_data = tf.placeholder(tf.int32, [arg.batch_size])
 
 		if arg.lstm:
-			self.cell = tf.nn.rnn_cell.BasicLSTMCell(arg.num_units)
+			self.cell = tf.nn.rnn_cell.BasicLSTMCell(arg.num_units, state_is_tuple=True)
 		else:
 			self.cell = tf.nn.rnn_cell.GRUCell(arg.num_units)
 
 		if arg.num_layers > 1:
-			self.cell = tf.nn.rnn_cell.MultiRNNCell([self.cell] * arg.num_layers)
+			self.cell = tf.nn.rnn_cell.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
 		self.cell_state = self.cell.zero_state(arg.batch_size, tf.float32)
 		self.step_count = tf.Variable(0, trainable=False)
 
@@ -33,7 +33,7 @@ class Model(object):
 			trainable_vars = tf.trainable_variables()
 			clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
 
-			self.trainer = tf.train.AdagradOptimizer(arg.learning_rate).apply_gradients(zip(clipped_grads, trainable_vars), self.step_count)
+			self.trainer = tf.train.AdamOptimizer(arg.learning_rate).apply_gradients(zip(clipped_grads, trainable_vars), self.step_count)
 
 		self.saver = tf.train.Saver()
 		

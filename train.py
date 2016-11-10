@@ -1,12 +1,14 @@
 from __future__ import division
 import argparse
+import sys
+import os
 
 def train(arg):
 	model = lstm.Model(arg, trainable=True)
 
 	if arg.verbose:
 		print 'Loading training data...'
-	_, price, _, _ = data_processor.parse(arg.data)
+	price = data_processor.parse_file(arg.data)
 	batch_input, batch_output = data_processor.get_batch_data(arg, price)
 
 	if arg.verbose:
@@ -24,35 +26,41 @@ def train(arg):
 		print "Hold: {} ({:2.4f}%)".format(hold, hold/label.size * 100)
 
 	with tf.Session() as sess:
-		sess.run(tf.initialize_all_variables())
+		try:
+			sess.run(tf.initialize_all_variables())
 
-		if arg.load is not None:
-			model.load(sess, arg.load+'.model')
+			if arg.load is not None:
+				model.load(sess, arg.load+'.model')
 
-		for it in xrange(arg.iter):
-			total_loss = 0.0
-			for i in xrange(len(batch_input) - 1):
-				loss = model.step(sess, batch_input[i], batch_output[i], trainable=True)
-				total_loss += np.sum(loss) / arg.batch_size
+			for it in xrange(arg.iter):
+				total_loss = 0.0
+				for i in xrange(len(batch_input) - 1):
+					loss = model.step(sess, batch_input[i], batch_output[i], trainable=True)
+					total_loss += np.sum(loss) / arg.batch_size
 
-			accuracy = []
-			buy=sell=hold=0
-			for i in xrange(len(batch_input)):
-				pred = model.step(sess, batch_input[i])
-				pred = np.argmax(pred, axis=1)
-				acc = accuracy_score(batch_output[i], pred)
-				accuracy.append(acc)
+				accuracy = []
+				buy=sell=hold=0
+				for i in xrange(len(batch_input)):
+					pred = model.step(sess, batch_input[i])
+					pred = np.argmax(pred, axis=1)
+					acc = accuracy_score(batch_output[i], pred)
+					accuracy.append(acc)
 
-				buy += np.where(pred == 2)[0].size
-				sell += np.where(pred == 1)[0].size
-				hold += np.where(pred == 0)[0].size
-			print "Iteration {} with average loss {} and accuracy {}".format(it, total_loss / len(batch_input), np.sum(accuracy) / len(accuracy))
-			print 'Buy:{} Sell:{} Hold:{}'.format(buy,sell,hold)
+					buy += np.where(pred == 2)[0].size
+					sell += np.where(pred == 1)[0].size
+					hold += np.where(pred == 0)[0].size
+				print "Iteration {} with average loss {} and accuracy {}".format(sess.run(model.step_count), total_loss / len(batch_input), np.sum(accuracy) / len(accuracy))
+				if arg.verbose:
+					print 'Buy:{} Sell:{} Hold:{}'.format(buy,sell,hold)
+				if arg.save is not None:
+					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
+						model.save(sess, arg.save+'.model')
 			if arg.save is not None:
-				if arg.save_freq != 0 and it % arg.save_freq:
+				model.save(sess, arg.save+'.model')
+		except KeyboardInterrupt:
+			print 'Training interrupted by user'
+			if arg.save is not None:
 					model.save(sess, arg.save+'.model')
-		if arg.save is not None:
-			model.save(sess, arg.save+'.model')
 
 #=====================================================================================================================
 
@@ -70,12 +78,18 @@ parser.add_argument('--gradient_clip', type=float, default=5.0)
 parser.add_argument('--save_freq', type=int, default=0)
 parser.add_argument('-l', dest='lstm', action='store_true', help='Use LSTM')
 parser.add_argument('-g', dest='lstm', action='store_false', help='Use GRU (default)')
+parser.add_argument('-f', dest='force', action='store_true', help='Force overwrite existing save files')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Verbose')
-parser.set_defaults(lstm=False, verbose=False)
+parser.set_defaults(lstm=False, verbose=False, force=False)
 
 parser.add_argument('--price_epsilon', type=float, default=0.5)
 
 arg = parser.parse_args()
+
+if arg.load is None and arg.save is not None:
+	if os.path.isdir('save/'+arg.save) and not arg.force:
+		print 'Save file already exists, to overwrite, use -f flag'
+		sys.exit(0)
 
 if arg.verbose:
 	print 'Loading dependencies...'
@@ -86,7 +100,7 @@ import tensorflow as tf
 import numpy as np
 import pickle
 from sklearn.metrics import accuracy_score
-import os
+
 
 if arg.verbose:
 	print 'Finish loading dependencies'

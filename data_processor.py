@@ -30,6 +30,12 @@ def parse(data_location):
         vol.append(data[i][4])
     return price_o, price_c, price_w, vol
 
+def parse_file(data_location):
+    file = open(data_location, 'r')
+    price_data = []
+    for line in file:
+        price_data.append(float(line.split(',')[1].rstrip()))
+    return price_data
 
 ##############################################################################
 #PARSING SWAP FILES
@@ -55,21 +61,20 @@ def parse_swap(data_location):
 
 def write_label(label_file, price_file, labels, input_length):
     f = open(label_file, 'w')
-    data = [price_file+'\n', input_length+'\n', ','.join(map(str,labels))]
+    data = [price_file+'\n', str(input_length)+'\n', ','.join(map(str,labels))]
     f.writelines(data)
 
 def read_label(label_file):
     f = open(label_file, 'r')
     data = f.readlines()
-    _,price,_,_ = parse(data[0].strip('\n'))
+    price = parse_file(data[0].strip('\n'))
     return price, int(data[1].strip('\n')), map(int, data[2].split(','))
 
 def get_batch_data(arg, price):
     x = []
-    for i in xrange(arg.input_length, len(price) - 1):
-        x.append(price[i-arg.input_length:i])
-    y = get_label(price[arg.input_length:])
-    assert len(x) == len(y)
+    for i in xrange(arg.input_length-1, len(price) - 1):
+        x.append(price[i-arg.input_length+1:i+1])
+    y = get_label(price[arg.input_length-1:], arg.price_epsilon)
     x = np.array(x)
     y = np.array(y)
     x = x - np.expand_dims(np.average(x, axis=1), axis=1)   #centering
@@ -114,6 +119,7 @@ def get_label(price, price_epsilon, hold=0, sell=1, buy=2):
                 continue
             if i+1 == len(ex) - 1:
                 del ex[i]
+                continue
             leftdif = abs(price[ex[i-1]] - price[ex[i]])
             rightdif = abs(price[ex[i+2]] - price[ex[i+1]])
             if leftdif > rightdif:
@@ -125,7 +131,7 @@ def get_label(price, price_epsilon, hold=0, sell=1, buy=2):
     inc = price[0] < price[1]
     labels = []
     exi = 0
-    for i in xrange(len(price)):
+    for i in xrange(len(price)-1):
         if i == ex[exi]:
             labels.append(buy if inc else sell)
             exi += 1
