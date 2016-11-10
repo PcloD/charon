@@ -1,6 +1,16 @@
 import sys
 sys.path.append('..')
 import data_processor
+from bunch import Bunch
+
+def get_batch_data_test():
+	arg = Bunch()
+	arg.price_epsilon = 1
+	arg.input_length = 4
+	arg.batch_size = 3
+	price = [1,2,3,4,3,2,1,4,5]
+	x,y = data_processor.get_batch_data(arg, price)
+	assert len(x) == len(y)
 
 def get_label_simple_test():
 	price = [1,2,3,2,1,5]
@@ -32,3 +42,4 @@ if __name__ == '__main__':
 	get_label_simple_test()
 	local_extrema_test()
 	get_label_test()
+	get_batch_data_test()
