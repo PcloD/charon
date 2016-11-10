@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import supercell
 
 class Model(object):
 	def __init__(self, arg, trainable=False):
@@ -10,7 +11,7 @@ class Model(object):
 		self.label_data = tf.placeholder(tf.int32, [arg.batch_size])
 
 		if arg.lstm:
-			self.cell = tf.nn.rnn_cell.BasicLSTMCell(arg.num_units)
+			self.cell = supercell.HyperLSTMCell(arg.num_units)
 		else:
 			self.cell = tf.nn.rnn_cell.GRUCell(arg.num_units)
 
