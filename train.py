@@ -7,58 +7,60 @@ def train(arg):
 	model = lstm.Model(arg, trainable=True)
 
 	if arg.verbose:
-		print 'Loading training data...'
+		print('Loading training data...')
 	price = data_processor.parse_file(arg.data)
 	batch_input, batch_output = data_processor.get_batch_data(arg, price)
+	test_input,_ = data_processor.get_batch_data(arg, data_processor.parse_file('data/btce_hourly_201607_201609.csv'))
+	if arg.verbose:
+		print('Finish loading data')
 
 	if arg.verbose:
-		print 'Finish loading data'
-
-	if arg.verbose:
-		label = [2 if price[k+1] > (price[k] + arg.price_epsilon) else (1 if (price[k+1] < price[k] - arg.price_epsilon) else 0) for k in xrange(len(price) - 1)]
-		label = np.array(label)
-		buy = np.where(label == 2)[0].size
-		sell = np.where(label == 1)[0].size
-		hold = np.where(label == 0)[0].size
-		print 'Label data distribution'
-		print "Buy: {} ({:2.4f}%)".format(buy, buy/label.size * 100)
-		print "Sell: {} ({:2.4f}%)".format(sell, sell/label.size * 100)
-		print "Hold: {} ({:2.4f}%)".format(hold, hold/label.size * 100)
+		label = np.array(data_processor.get_label_pressure(price, arg.price_epsilon))
+		buy = np.where(label == 1)[0].size
+		sell = np.where(label == -1)[0].size
+		print('Label data distribution')
+		print("Buy: {} ({:2.4f}%)".format(buy, buy/label.size * 100))
+		print("Sell: {} ({:2.4f}%)".format(sell, sell/label.size * 100))
 
 	with tf.Session() as sess:
 		try:
-			sess.run(tf.initialize_all_variables())
+			sess.run(tf.global_variables_initializer())
 
 			if arg.load is not None:
 				model.load(sess, arg.load+'.model')
 
-			for it in xrange(arg.iter):
-				total_loss = 0.0
-				for i in xrange(len(batch_input) - 1):
+			for it in range(arg.iter):
+				total_loss = []
+				for i in range(len(batch_input) - 1):
 					loss = model.step(sess, batch_input[i], batch_output[i], trainable=True)
-					total_loss += np.sum(loss) / arg.batch_size
+					total_loss.append(np.mean(loss))
+				print("Iteration {} | Loss {}".format(it, np.mean(total_loss)))
 
-				accuracy = []
-				buy=sell=hold=0
-				for i in xrange(len(batch_input)):
-					pred = model.step(sess, batch_input[i])
-					pred = np.argmax(pred, axis=1)
-					acc = accuracy_score(batch_output[i], pred)
-					accuracy.append(acc)
-
-					buy += np.where(pred == 2)[0].size
-					sell += np.where(pred == 1)[0].size
-					hold += np.where(pred == 0)[0].size
-				print "Iteration {} with average loss {} and accuracy {}".format(sess.run(model.step_count), total_loss / len(batch_input), np.sum(accuracy) / len(accuracy))
-				if arg.verbose:
-					print 'Buy:{} Sell:{} Hold:{}'.format(buy,sell,hold)
 				if arg.save is not None:
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
+
+				if it % 20 == 19:
+					buy=sell=0
+					predictions=[]
+					for i in range(len(test_input)):
+						pred = model.step(sess, test_input[i])
+						# pred = np.argmax(pred, axis=1)
+						pred[pred > 0.5] = 1
+						pred[pred < -0.5] = -1
+						predictions += pred.astype(int).flatten().tolist()
+						buy += np.where(pred == 1)[0].size
+						sell += np.where(pred == -1)[0].size
+					data_processor.write_label('save/validation.temp', 'data/btce_hourly_201607_201609.csv', predictions, arg.input_length)
+					execute.strict_execute_points('save/validation.temp',initial=10000,sell=-1,buy=1,trans=None,draw=False)
+
+					if arg.verbose:
+						print('Buy:{} Sell:{}'.format(buy,sell))
+				
 			if arg.save is not None:
 				model.save(sess, arg.save+'.model')
 		except KeyboardInterrupt:
-			print 'Training interrupted by user'
+			print('Training interrupted by user')
 			if arg.save is not None:
 					model.save(sess, arg.save+'.model')
 
@@ -73,7 +75,7 @@ parser.add_argument('--batch_size', type=int, default=50)
 parser.add_argument('--num_units', type=int, default=400)
 parser.add_argument('--num_layers', type=int, default=2)
 parser.add_argument('--input_length', type=int, default=1)
-parser.add_argument('--learning_rate', type=float, default=0.1)
+parser.add_argument('--learning_rate', type=float, default=0.0001)
 parser.add_argument('--gradient_clip', type=float, default=5.0)
 parser.add_argument('--save_freq', type=int, default=0)
 parser.add_argument('-l', dest='lstm', action='store_true', help='Use LSTM')
@@ -88,22 +90,23 @@ arg = parser.parse_args()
 
 if arg.load is None and arg.save is not None:
 	if os.path.isdir('save/'+arg.save) and not arg.force:
-		print 'Save file already exists, to overwrite, use -f flag'
+		print('Save file already exists, to overwrite, use -f flag')
 		sys.exit(0)
 
 if arg.verbose:
-	print 'Loading dependencies...'
+	print('Loading dependencies...')
 
 import data_processor
 import lstm
 import tensorflow as tf
 import numpy as np
 import pickle
+import execute
 from sklearn.metrics import accuracy_score
 
 
 if arg.verbose:
-	print 'Finish loading dependencies'
+	print('Finish loading dependencies')
 
 if arg.save is not None:
 	if not os.path.isdir('save/'+arg.save):
@@ -111,7 +114,7 @@ if arg.save is not None:
 	arg.save = 'save/{}/{}'.format(arg.save, arg.save)
 	pickle.dump(arg, open(arg.save+'.cfg', 'wb'))
 	if arg.verbose:
-		print 'Configuration saved at ' + arg.save
+		print('Configuration saved at ' + arg.save +'.cfg')
 
 if arg.load is not None:
 	arg.load = 'save/{}/{}'.format(arg.load, arg.load)
@@ -122,5 +125,5 @@ if arg.load is not None:
 	arg.lstm = a.lstm
 	arg.price_epsilon = a.price_epsilon
 	if arg.verbose:
-			print 'Config loaded from ' + arg.load + '.cfg'
+			print('Config loaded from ' + arg.load + '.cfg')
 train(arg)

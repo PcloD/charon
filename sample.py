@@ -7,13 +7,13 @@ parser.add_argument('-L', '--load', type=str)
 parser.add_argument('-S', '--save', type=str)
 parser.add_argument('-v', dest='verbose', action='store_true', help='Verbose')
 parser.add_argument('-x', dest='execute', action='store_true', help='Execute trades')
-parser.set_defaults(verbose=False, execute=False)
+
 arg = parser.parse_args()
 
 import os
 import sys
 if not os.path.isdir('save/'+arg.load):
-	print 'Load file {} does not exist'.format('save/'+arg.load)
+	print('Load file {} does not exist'.format('save/'+arg.load))
 	sys.exit(-1)
 
 import pickle
@@ -26,21 +26,21 @@ saved_arg.save = arg.save
 saved_arg.batch_size = 1
 
 if saved_arg.verbose:
-	print 'Loading dependencies...'
+	print('Loading dependencies...')
 import lstm
 import data_processor
 import tensorflow as tf
 import numpy as np
 import execute
 if saved_arg.verbose:
-	print 'Finish loading dependencies'
+	print('Finish loading dependencies')
 
 if saved_arg.verbose:
-	print 'Loading data...'
+	print('Loading data...')
 price = data_processor.parse_file(saved_arg.data)
 batch_input,_ = data_processor.get_batch_data(saved_arg, price)
 if saved_arg.verbose:
-	print 'Finish loading data...'
+	print('Finish loading data...')
 
 model = lstm.Model(saved_arg, trainable=False)
 with tf.Session() as sess:
@@ -52,5 +52,5 @@ with tf.Session() as sess:
 		predictions.append(int(pred[0]))
 	data_processor.write_label(saved_arg.save, saved_arg.data, predictions, saved_arg.input_length)
 if arg.execute:
-	print 'Executing the sample...'
+	print('Executing the sample...')
 	execute.strict_execute_points(saved_arg.save)
