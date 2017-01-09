@@ -1,5 +1,7 @@
 *.pyc
-save/model/*
+save
 data/dense
 data/*.csv
 data/*.txt
+data/raw
+__pycache__
