@@ -27,7 +27,7 @@ def httpPost(url,resource,params):
             "Content-type" : "application/x-www-form-urlencoded",
      }
      conn = http.client.HTTPSConnection(url, timeout=10)
-     temp_params = urllib.urlencode(params)
+     temp_params = urllib.parse.urlencode(params)
      conn.request("POST", resource, temp_params, headers)
      response = conn.getresponse()
      data = response.read().decode('utf-8')
