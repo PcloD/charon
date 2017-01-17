@@ -1,6 +1,6 @@
 import numpy as np
 
-def parse(file):
+def parse_high_frequency(file):
     f = open(file, 'r')
     price_data = []
     for line in f:
@@ -27,25 +27,45 @@ def read_label(label_file):
     return price, int(data[1].strip('\n')), list(map(int, data[2].split(',')))
 
 def get_batch_data(arg, price):
-    x = []
-    for i in range(arg.input_length - 1, len(price) - 1):
-        x.append(price[i-arg.input_length+1:i+1])
-    y = get_label_pressure(price[arg.input_length-1:], arg.price_epsilon)
+    x = get_features_high_frequency(price[:-1])
+    y = get_label_high_frequency(price)
+
+    assert len(x) == len(y)
+
+    # change to numpy array
     x = np.array(x)
     y = np.array(y)
-    x = x - np.expand_dims(np.average(x, axis=1), axis=1)#/np.std(x)  #centering
+
+    # binning
     overflow = x.shape[0] % arg.batch_size
     x = np.delete(x, range(x.shape[0]-1-overflow, x.shape[0]-1), axis=0)
     y = np.delete(y, range(y.shape[0]-1-overflow, y.shape[0]-1), axis=0)
     num_bin = len(x) / arg.batch_size
-    return np.split(x, num_bin), np.split(y, num_bin)
+    x_split, y_split = np.split(x, num_bin), np.split(y, num_bin)
+    pivot = int(len(x_split) / (1-arg.test_size))
+    return x_split[:pivot], x_split[pivot:], y_split[:pivot], y_split[pivot:]
+
+def get_features_high_frequency(data):
+    """ data t-by-4 matrix or list """
+    output_feature = []
+    for datum in data:
+        o,c,h,l,vol = datum
+        feature = []
+        output_feature.append(feature)
+        avg = np.mean(datum)
+        feature.append(avg)
+        feature.append(vol)
+        feature.append((c-o) / avg)
+        feature.append((h-avg) / avg)
+        feature.append((avg-l) / avg)
+    return output_feature
 
 # percent move
-def get_label_complex(price):
+def get_label_high_frequency(price):
     label = []
     for i in range(len(price) - 1):
-        ochl_a = np.average(price[i])
-        ochl_b = np.average(price[i+1])
+        ochl_a = np.mean(price[i])
+        ochl_b = np.mean(price[i+1])
         label.append((ochl_b - ochl_a) / ochl_a)
     return label
 

@@ -37,7 +37,7 @@ if saved_arg.verbose:
 
 if saved_arg.verbose:
 	print('Loading data...')
-price = data_processor.parse_file(saved_arg.data)
+price = data_processor.parse_high_frequency(saved_arg.data)
 batch_input,_ = data_processor.get_batch_data(saved_arg, price)
 if saved_arg.verbose:
 	print('Finish loading data...')

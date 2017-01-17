@@ -25,13 +25,10 @@ class Model(object):
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-1, maxval=1, dtype=tf.float32))
 		self.softmaxb = tf.Variable(tf.truncated_normal([1, output_dim]), dtype=tf.float32)
-		# self.logits = tf.matmul(outputs, self.softmaxW) + self.softmaxb
-		# self.probs = tf.nn.softmax(self.logits)
-		self.pressure = tf.tanh(tf.matmul(outputs, self.softmaxW) + self.softmaxb)
+		self.prediction = tf.tanh(tf.matmul(outputs, self.softmaxW) + self.softmaxb)
 
 		if trainable:
-			# self.loss = tf.nn.sparse_softmax_cross_entropy_with_logits(self.logits, self.label_data)
-			self.loss = tf.squared_difference(self.pressure, self.label_data)
+			self.loss = tf.squared_difference(self.prediction, self.label_data)
 			trainable_vars = tf.trainable_variables()
 			clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
 
@@ -42,10 +39,10 @@ class Model(object):
 	def step(self, session, input_data, label_data=None, trainable=False):
 		if trainable:
 			input_feed = {self.input_data: input_data, self.label_data:label_data}
-			output_var = [self.trainer, self.loss, self.pressure]
+			output_var = [self.trainer, self.loss, self.prediction]
 		else:
 			input_feed = {self.input_data: input_data}
-			output_var = [self.pressure]
+			output_var = [self.prediction]
 		
 		output = session.run(output_var, feed_dict=input_feed)
 		return output[1] if trainable else output[0]

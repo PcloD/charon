@@ -8,19 +8,10 @@ def train(arg):
 
 	if arg.verbose:
 		print('Loading training data...')
-	price = data_processor.parse_file(arg.data)
-	batch_input, batch_output = data_processor.get_batch_data(arg, price)
-	test_input,_ = data_processor.get_batch_data(arg, data_processor.parse_file('data/btce_hourly_201607_201609.csv'))
+	price = data_processor.parse_high_frequency(arg.data)
+	batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
 	if arg.verbose:
 		print('Finish loading data')
-
-	if arg.verbose:
-		label = np.array(data_processor.get_label_pressure(price, arg.price_epsilon))
-		buy = np.where(label == 1)[0].size
-		sell = np.where(label == -1)[0].size
-		print('Label data distribution')
-		print("Buy: {} ({:2.4f}%)".format(buy, buy/label.size * 100))
-		print("Sell: {} ({:2.4f}%)".format(sell, sell/label.size * 100))
 
 	with tf.Session() as sess:
 		try:
@@ -30,32 +21,29 @@ def train(arg):
 				model.load(sess, arg.load+'.model')
 
 			for it in range(arg.iter):
+				# training phase
 				total_loss = []
-				for i in range(len(batch_input) - 1):
+				for i in range(len(batch_input)):
 					loss = model.step(sess, batch_input[i], batch_output[i], trainable=True)
 					total_loss.append(np.mean(loss))
-				print("Iteration {} | Loss {}".format(it, np.mean(total_loss)))
 
 				if arg.save is not None:
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
-
-				if it % 20 == 0:
-					buy=sell=0
-					predictions=[]
-					for i in range(len(test_input)):
-						pred = model.step(sess, test_input[i])
-						pred[pred > 0] = 1
-						pred[pred < 0] = -1
-						predictions += pred.astype(int).flatten().tolist()
-						buy += np.where(pred == 1)[0].size
-						sell += np.where(pred == -1)[0].size
-					data_processor.write_label('save/validation.temp', 'data/btce_hourly_201607_201609.csv', predictions, arg.input_length)
-					execute.strict_execute_points('save/validation.temp',initial=10000,sell=-1,buy=1,trans=None,draw=False)
-
-					if arg.verbose:
-						print('Buy:{} Sell:{}'.format(buy,sell))
 				
+				# test phase
+				total_test_loss = []
+				correct = 0
+				print ("testing phase")
+				
+				for i in range(len(test_input)):
+					predict = model.step(sess, test_input[i])
+					loss = np.mean((predict - test_output[i]) ** 2)
+					total_test_loss.append(loss)
+					if predict * test_output[i] > 0:
+						correct += 1
+				print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct))
+
 			if arg.save is not None:
 				model.save(sess, arg.save+'.model')
 		except KeyboardInterrupt:
@@ -67,7 +55,7 @@ def train(arg):
 
 parser = argparse.ArgumentParser(description="Multilayer RNN trainer")
 parser.add_argument('-D', '--data', type=str, help='Historical price data file to be parsed', required=True)
-parser.add_argument('-L', '--load', type=str, default=None, help='Load existing model')
+parser.add_argument('-L', '--load', type=str, default=None, help='Load trained package')
 parser.add_argument('-S', '--save', type=str, default=None, help='Model save package name')
 parser.add_argument('--iter', type=int, default=200, help='Maximum number of iterations')
 parser.add_argument('--batch_size', type=int, default=50)
@@ -77,6 +65,7 @@ parser.add_argument('--input_length', type=int, default=50)
 parser.add_argument('--learning_rate', type=float, default=0.0001)
 parser.add_argument('--gradient_clip', type=float, default=5.0)
 parser.add_argument('--save_freq', type=int, default=0)
+parser.add_argument('--test_size', type=float, default=0.2)
 parser.add_argument('-l', dest='lstm', action='store_true', help='Use LSTM')
 parser.add_argument('-g', dest='lstm', action='store_false', help='Use GRU (default)')
 parser.add_argument('-f', dest='force', action='store_true', help='Force overwrite existing save files')
@@ -105,6 +94,7 @@ import execute
 if arg.verbose:
 	print('Finish loading dependencies')
 
+# expand save path
 if arg.save is not None:
 	if not os.path.isdir('save/'+arg.save):
 		os.mkdir('save/'+arg.save)
@@ -113,6 +103,7 @@ if arg.save is not None:
 	if arg.verbose:
 		print('Configuration saved at ' + arg.save +'.cfg')
 
+# load config
 if arg.load is not None:
 	arg.load = 'save/{}/{}'.format(arg.load, arg.load)
 	a = pickle.load(open(arg.load+'.cfg', 'rb'))
