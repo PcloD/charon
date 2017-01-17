@@ -25,7 +25,7 @@ def execute_points(file, hold, sell, buy):
 
 def strict_execute_points(file, sell, buy, initial=1000, trans=1, draw=True):
 	""" Execute every point in the file, does not overdraw
-		Buy/Sell 1 BTC at a time
+		Buy/Sell [trans] BTC at a time
 	"""
 	if trans is None or trans <= 0:
 		trans = 100000000

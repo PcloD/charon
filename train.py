@@ -40,14 +40,13 @@ def train(arg):
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
 
-				if it % 20 == 19:
+				if it % 20 == 0:
 					buy=sell=0
 					predictions=[]
 					for i in range(len(test_input)):
 						pred = model.step(sess, test_input[i])
-						# pred = np.argmax(pred, axis=1)
-						pred[pred > 0.5] = 1
-						pred[pred < -0.5] = -1
+						pred[pred > 0] = 1
+						pred[pred < 0] = -1
 						predictions += pred.astype(int).flatten().tolist()
 						buy += np.where(pred == 1)[0].size
 						sell += np.where(pred == -1)[0].size
@@ -70,11 +69,11 @@ parser = argparse.ArgumentParser(description="Multilayer RNN trainer")
 parser.add_argument('-D', '--data', type=str, help='Historical price data file to be parsed', required=True)
 parser.add_argument('-L', '--load', type=str, default=None, help='Load existing model')
 parser.add_argument('-S', '--save', type=str, default=None, help='Model save package name')
-parser.add_argument('--iter', type=int, default=10, help='Maximum number of iterations')
+parser.add_argument('--iter', type=int, default=200, help='Maximum number of iterations')
 parser.add_argument('--batch_size', type=int, default=50)
-parser.add_argument('--num_units', type=int, default=400)
+parser.add_argument('--num_units', type=int, default=800)
 parser.add_argument('--num_layers', type=int, default=2)
-parser.add_argument('--input_length', type=int, default=1)
+parser.add_argument('--input_length', type=int, default=50)
 parser.add_argument('--learning_rate', type=float, default=0.0001)
 parser.add_argument('--gradient_clip', type=float, default=5.0)
 parser.add_argument('--save_freq', type=int, default=0)
