@@ -4,8 +4,6 @@ import sys
 import os
 
 def train(arg):
-	model = lstm.Model(arg, trainable=True)
-
 	if arg.verbose:
 		print('Loading training data...')
 	price = data_processor.parse_high_frequency(arg.data)
@@ -14,6 +12,8 @@ def train(arg):
 	batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
 	if arg.verbose:
 		print('Finish loading data')
+
+	model = lstm.Model(arg, trainable=True)
 
 	config = tf.ConfigProto()
 	config.gpu_options.allow_growth = True
@@ -35,7 +35,7 @@ def train(arg):
 				if arg.save is not None:
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
-				# model.reset()
+
 				# test phase
 				total_test_loss = []
 				correct = 0

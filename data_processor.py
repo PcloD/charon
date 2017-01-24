@@ -1,10 +1,12 @@
 import numpy as np
+import datetime
+import math 
 
 def parse_high_frequency(file):
     f = open(file, 'r')
     price_data = []
     for line in f:
-        tok = line.split(',')[1:] # first item is timestamp
+        tok = line.split(',') # first item is timestamp
         price_data.append([float(i) for i in tok])
     return price_data
 
@@ -27,8 +29,8 @@ def read_label(label_file):
     return price, int(data[1].strip('\n')), list(map(int, data[2].split(',')))
 
 def get_batch_data(arg, price):
-    x = get_features_high_frequency(price[:-1])
-    y = get_label_high_frequency(price)
+    x = get_features_futures(price[:-1])
+    y = get_label_futures(price)
 
     assert len(x) == len(y)
 
@@ -62,6 +64,19 @@ def get_features_high_frequency(data):
         feature.append((avg-l) / avg)
     return output_feature
 
+def get_features_futures(data, liquidity_factor=20):
+    output_feature = []
+    for datum in data:
+        feature=[]
+        timestamp,settlement,last,high,low,buy,sell,hold,index,ask1,ask2,ask3,bid1,bid2,bid3 = datum
+        current_time = datetime.datetime.fromtimestamp(int(timestamp) / 1000)
+        settlement_time = datetime.datetime.fromtimestamp(int(settlement) / 1000)
+        days_to_settlement = (settlement_time - current_time).days
+        daily_interest = (last/index) ** (1/days_to_settlement)
+        lmsr = liquidity_factor * math.log(math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
+        output_feature.append([last,high,low,buy,sell,hold,daily_interest,lmsr,ask1,ask2,ask3,bid1,bid2,bid3])
+    return output_feature
+
 # percent move
 def get_label_high_frequency(price):
     label = []
@@ -69,6 +84,13 @@ def get_label_high_frequency(price):
         ochl_a = np.mean(price[i])
         ochl_b = np.mean(price[i+1])
         label.append(100*(ochl_b - ochl_a) / ochl_a)
+    return label
+
+def get_label_futures(data):
+    label = []
+    for i in range(len(data)-1):
+        p1,p2 = data[i][2],data[i+1][2]
+        label.append(100 * (p2-p1)/p1)
     return label
 
 def get_label_pressure(price, price_epsilon, hold=0, sell=-1, buy=1):
