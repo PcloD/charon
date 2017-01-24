@@ -9,11 +9,16 @@ def train(arg):
 	if arg.verbose:
 		print('Loading training data...')
 	price = data_processor.parse_high_frequency(arg.data)
+	if arg.verbose:
+		print('Number of data points: {}'.format(len(price)))
 	batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
 	if arg.verbose:
 		print('Finish loading data')
 
-	with tf.Session() as sess:
+	config = tf.ConfigProto()
+	config.gpu_options.allow_growth = True
+
+	with tf.Session(config=config) as sess:
 		try:
 			sess.run(tf.global_variables_initializer())
 
@@ -30,20 +35,17 @@ def train(arg):
 				if arg.save is not None:
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
-				
+				# model.reset()
 				# test phase
 				total_test_loss = []
 				correct = 0
-				print ("testing phase")
-				
 				for i in range(len(test_input)):
-					predict = model.step(sess, test_input[i])
-					loss = np.mean((predict - test_output[i]) ** 2)
-					total_test_loss.append(loss)
-					if predict * test_output[i] > 0:
-						correct += 1
-				print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct))
-
+					predict = model.step(sess, test_input[i]).flatten()
+					loss = (predict - test_output[i]) ** 2
+					total_test_loss.append(np.mean(loss))
+					correct += np.where(predict * test_output[i] > 0.00001)[0].size
+				model.reset()
+				print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}/{}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct, len(test_input) * arg.batch_size))
 			if arg.save is not None:
 				model.save(sess, arg.save+'.model')
 		except KeyboardInterrupt:
@@ -58,10 +60,10 @@ parser.add_argument('-D', '--data', type=str, help='Historical price data file t
 parser.add_argument('-L', '--load', type=str, default=None, help='Load trained package')
 parser.add_argument('-S', '--save', type=str, default=None, help='Model save package name')
 parser.add_argument('--iter', type=int, default=200, help='Maximum number of iterations')
-parser.add_argument('--batch_size', type=int, default=50)
+parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--num_units', type=int, default=800)
 parser.add_argument('--num_layers', type=int, default=2)
-parser.add_argument('--input_length', type=int, default=50)
+parser.add_argument('--input_length', type=int, default=5)
 parser.add_argument('--learning_rate', type=float, default=0.0001)
 parser.add_argument('--gradient_clip', type=float, default=5.0)
 parser.add_argument('--save_freq', type=int, default=0)

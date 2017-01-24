@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import supercell
+import sys
 
 class Model(object):
 	def __init__(self, arg, trainable=False):
@@ -11,7 +11,8 @@ class Model(object):
 		self.label_data = tf.placeholder(tf.float32, [arg.batch_size])
 
 		if arg.lstm:
-			self.cell = supercell.HyperLSTMCell(arg.num_units)
+			# self.cell = supercell.HyperLSTMCell(arg.num_units)
+			self.cell = tf.nn.rnn_cell.BasicLSTMCell(arg.num_units)
 		else:
 			self.cell = tf.nn.rnn_cell.GRUCell(arg.num_units)
 
@@ -21,11 +22,12 @@ class Model(object):
 
 		# RNN cell update
 		outputs, self.cell_state = self.cell(self.input_data, self.cell_state)
-
+		self.o = outputs
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-1, maxval=1, dtype=tf.float32))
 		self.softmaxb = tf.Variable(tf.truncated_normal([1, output_dim]), dtype=tf.float32)
 		self.prediction = tf.tanh(tf.matmul(outputs, self.softmaxW) + self.softmaxb)
+		self.p = tf.matmul(outputs, self.softmaxW)
 
 		if trainable:
 			self.loss = tf.squared_difference(self.prediction, self.label_data)
@@ -35,7 +37,10 @@ class Model(object):
 			self.trainer = tf.train.AdamOptimizer(arg.learning_rate).apply_gradients(zip(clipped_grads, trainable_vars))
 
 		self.saver = tf.train.Saver()
-		
+	
+	def reset(self):
+		self.cell_state = self.cell.zero_state(1, tf.float32)
+
 	def step(self, session, input_data, label_data=None, trainable=False):
 		if trainable:
 			input_feed = {self.input_data: input_data, self.label_data:label_data}
@@ -43,7 +48,6 @@ class Model(object):
 		else:
 			input_feed = {self.input_data: input_data}
 			output_var = [self.prediction]
-		
 		output = session.run(output_var, feed_dict=input_feed)
 		return output[1] if trainable else output[0]
 

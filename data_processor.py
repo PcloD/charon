@@ -38,11 +38,13 @@ def get_batch_data(arg, price):
 
     # binning
     overflow = x.shape[0] % arg.batch_size
-    x = np.delete(x, range(x.shape[0]-1-overflow, x.shape[0]-1), axis=0)
-    y = np.delete(y, range(y.shape[0]-1-overflow, y.shape[0]-1), axis=0)
+    if arg.verbose:
+        print ("Lost {} data points due to binning".format(overflow))
+    x = np.delete(x, range(x.shape[0]-overflow, x.shape[0]), axis=0)
+    y = np.delete(y, range(y.shape[0]-overflow, y.shape[0]), axis=0)
     num_bin = len(x) / arg.batch_size
     x_split, y_split = np.split(x, num_bin), np.split(y, num_bin)
-    pivot = int(len(x_split) / (1-arg.test_size))
+    pivot = int(len(x_split) * (1-arg.test_size))
     return x_split[:pivot], x_split[pivot:], y_split[:pivot], y_split[pivot:]
 
 def get_features_high_frequency(data):
@@ -66,7 +68,7 @@ def get_label_high_frequency(price):
     for i in range(len(price) - 1):
         ochl_a = np.mean(price[i])
         ochl_b = np.mean(price[i+1])
-        label.append((ochl_b - ochl_a) / ochl_a)
+        label.append(100*(ochl_b - ochl_a) / ochl_a)
     return label
 
 def get_label_pressure(price, price_epsilon, hold=0, sell=-1, buy=1):
