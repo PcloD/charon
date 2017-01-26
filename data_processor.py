@@ -29,8 +29,8 @@ def read_label(label_file):
     return price, int(data[1].strip('\n')), list(map(int, data[2].split(',')))
 
 def get_batch_data(arg, price):
-    x = get_features_futures(price[:-1])
-    y = get_label_futures(price)
+    # x,y = get_features_high_frequency(price[:-1]), get_label_high_frequency(price)
+    x,y = get_features_futures(price[:-1]), get_label_futures(price)
 
     assert len(x) == len(y)
 
@@ -53,7 +53,7 @@ def get_features_high_frequency(data):
     """ data t-by-4 matrix or list """
     output_feature = []
     for datum in data:
-        o,c,h,l,vol = datum
+        t,o,c,h,l,vol = datum
         feature = []
         output_feature.append(feature)
         avg = np.mean(datum)
@@ -81,8 +81,8 @@ def get_features_futures(data, liquidity_factor=20):
 def get_label_high_frequency(price):
     label = []
     for i in range(len(price) - 1):
-        ochl_a = np.mean(price[i])
-        ochl_b = np.mean(price[i+1])
+        ochl_a = np.mean(price[i][1:])
+        ochl_b = np.mean(price[i+1][1:])
         label.append(100*(ochl_b - ochl_a) / ochl_a)
     return label
 

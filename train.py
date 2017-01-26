@@ -12,8 +12,8 @@ def train(arg):
 	batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
 	if arg.verbose:
 		print('Finish loading data')
-
-	model = lstm.Model(arg, trainable=True)
+	arg.input_length = batch_input[0].shape[1]
+	model = rnn.Model(arg, trainable=True)
 
 	config = tf.ConfigProto()
 	config.gpu_options.allow_growth = True
@@ -29,9 +29,8 @@ def train(arg):
 				# training phase
 				total_loss = []
 				for i in range(len(batch_input)):
-					loss = model.step(sess, batch_input[i], batch_output[i], trainable=True)
+					trainer,loss,prediction = model.step(sess, batch_input[i], batch_output[i], trainable=True)
 					total_loss.append(np.mean(loss))
-
 				if arg.save is not None:
 					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 						model.save(sess, arg.save+'.model')
@@ -41,7 +40,7 @@ def train(arg):
 				correct = 0
 				for i in range(len(test_input)):
 					predict = model.step(sess, test_input[i]).flatten()
-					loss = (predict - test_output[i]) ** 2
+					loss = model.error(sess, predict, test_output[i])
 					total_test_loss.append(np.mean(loss))
 					correct += np.where(predict * test_output[i] > 0.00001)[0].size
 				model.reset()
@@ -65,7 +64,7 @@ parser.add_argument('--num_units', type=int, default=800)
 parser.add_argument('--num_layers', type=int, default=2)
 parser.add_argument('--input_length', type=int, default=5)
 parser.add_argument('--learning_rate', type=float, default=0.0001)
-parser.add_argument('--gradient_clip', type=float, default=5.0)
+parser.add_argument('--gradient_clip', type=float, default=1.0)
 parser.add_argument('--save_freq', type=int, default=0)
 parser.add_argument('--test_size', type=float, default=0.2)
 parser.add_argument('-l', dest='lstm', action='store_true', help='Use LSTM')
@@ -87,7 +86,7 @@ if arg.verbose:
 	print('Loading dependencies...')
 
 import data_processor
-import lstm
+import rnn
 import tensorflow as tf
 import numpy as np
 import pickle
