@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import sys
 
 class Model(object):
 	def __init__(self, arg, trainable=False):
@@ -28,14 +27,14 @@ class Model(object):
 		self.prediction = tf.tanh(tf.matmul(self.outputs, self.softmaxW) + self.softmaxb)
 
 		if trainable:
-			# self.loss = tf.nn.l2_loss(self.label_data - self.prediction)
-			self.loss = tf.squared_difference(self.label_data, self.prediction)
+			self.loss = tf.nn.l2_loss(self.label_data - self.prediction)
+			# self.loss = tf.squared_difference(self.label_data, self.prediction)
 			trainable_vars = tf.trainable_variables()
-			opt = tf.train.AdagradOptimizer(arg.learning_rate)
-			# opt = tf.train.AdamOptimizer(arg.learning_rate)
-			# clipped_grads, _ = tf.clip_by_global_norm(opt.compute_gradients(self.loss, trainable_vars), arg.gradient_clip)
-			# self.trainer = opt.apply_gradients(zip(clipped_grads, trainable_vars))
-			self.trainer = opt.minimize(self.loss, var_list=trainable_vars)
+			# opt = tf.train.AdagradOptimizer(arg.learning_rate)
+			opt = tf.train.AdamOptimizer(arg.learning_rate)
+			clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
+			self.trainer = opt.apply_gradients(zip(clipped_grads, trainable_vars))
+			# self.trainer = opt.minimize(self.loss, var_list=trainable_vars)
 		self.saver = tf.train.Saver()
 	
 	def reset(self):
