@@ -28,6 +28,7 @@ def train(arg):
 			for it in range(arg.iter):
 				# training phase
 				total_loss = []
+				# Get the initial state for the rnn
 				prev_state = model.zero_state()
 				for i in range(len(batch_input)):
 					trainer,loss,prediction,curr_state = model.step(sess, batch_input[i], batch_output[i], trainable=True, state=prev_state)
@@ -40,13 +41,15 @@ def train(arg):
 				# test phase
 				total_test_loss = []
 				correct = 0
-				prev_state = model.zero_state()
+				# prev_state = model.zero_state()
 				for i in range(len(test_input)):
 					predict,curr_state = model.step(sess, test_input[i],state=prev_state)
 					prev_state = curr_state
 					loss = model.error(sess, predict, test_output[i])
 					total_test_loss.append(np.mean(loss))
-					correct += np.where(predict * test_output[i] > 0.00001)[0].size
+					c = 1 if 100 * predict * test_output[i] > 0 else 0
+					correct += c
+					print ("Predicted [{}]: {}".format(i,predict))
 				print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}/{}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct, len(test_input) * arg.batch_size))
 			if arg.save is not None:
 				model.save(sess, arg.save+'.model')
@@ -64,7 +67,7 @@ parser.add_argument('-S', '--save', type=str, default=None, help='Model save pac
 parser.add_argument('--iter', type=int, default=200, help='Maximum number of iterations')
 parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--num_units', type=int, default=800)
-parser.add_argument('--num_layers', type=int, default=2)
+parser.add_argument('--num_layers', type=int, default=3)
 parser.add_argument('--input_length', type=int, default=14)
 parser.add_argument('--learning_rate', type=float, default=0.0001)
 parser.add_argument('--gradient_clip', type=float, default=1.0)

@@ -11,9 +11,9 @@ arg.batch_size = 1
 arg.input_length = 1
 arg.lstm = False
 arg.num_layers = 3
-arg.num_units = 400
-arg.learning_rate = 0.0001
-arg.gradient_clip = 5
+arg.num_units = 600
+arg.learning_rate = 0.001
+arg.gradient_clip = 10
 
 model = rnn.Model(arg, trainable=True)
 

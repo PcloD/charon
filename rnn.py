@@ -24,8 +24,8 @@ class Model(object):
 		# RNN cell update
 		self.outputs, self.cell_state = self.cell(self.input_data, input_rnn_state)
 		# Map the result to a single scalar
-		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-1, maxval=1, dtype=tf.float32))
-		self.softmaxb = tf.Variable(tf.truncated_normal([1, output_dim]), dtype=tf.float32)
+		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-0.005, maxval=0.005, dtype=tf.float32))
+		self.softmaxb = tf.Variable(tf.random_uniform([1, output_dim], minval=-0.001, maxval=0.001, dtype=tf.float32))
 		self.prediction = tf.tanh(tf.matmul(self.outputs, self.softmaxW) + self.softmaxb)
 
 		if trainable:
