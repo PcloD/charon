@@ -74,15 +74,16 @@ if arg.verbose:
 batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
 if arg.verbose:
 	print('Finish loading data')
-arg.input_length = batch_input[0].shape[1]
-model = rnn.Model(arg, trainable=True)
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
+feature_size = batch_input[0].shape[1]
+model = rnn.Model(arg, feature_size, trainable=True)
 
 training_error = []
 testing_error = []
 
+# setup GPU configuration
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
 with tf.Session(config=config) as sess:
 	try:
 		sess.run(tf.global_variables_initializer())

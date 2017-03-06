@@ -2,11 +2,11 @@ import tensorflow as tf
 import numpy as np
 
 class Model(object):
-	def __init__(self, arg, trainable=False):
+	def __init__(self, arg, feature_size, trainable=False):
 		self.arg = arg
 		output_dim = 1
 
-		self.input_data = tf.placeholder(tf.float32, [arg.batch_size, arg.input_length])
+		self.input_data = tf.placeholder(tf.float32, [arg.batch_size, arg.input_length, feature_size])
 		self.label_data = tf.placeholder(tf.float32, [arg.batch_size])
 
 		if arg.lstm:
@@ -17,17 +17,8 @@ class Model(object):
 		if arg.num_layers > 1:
 			self.cell = tf.contrib.rnn.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
 
-		if arg.lstm:
-			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, 2, arg.batch_size, arg.num_units])
-			unpacked_state = tf.unstack(self.rnn_state, axis=0)
-			input_rnn_state = tuple([tf.contrib.rnn.LSTMStateTuple(unpacked_state[idx][0], unpacked_state[idx][1]) for idx in range(arg.num_layers)])
-		else:
-			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, arg.batch_size, arg.num_units])
-			unpacked_state = tf.unstack(self.rnn_state, axis=0)
-			input_rnn_state = tuple(unpacked_state)
-
 		# RNN cell update
-		self.outputs, self.cell_state = self.cell(self.input_data, input_rnn_state)
+		self.outputs, self.cell_state = self.dynamic_rnn(self.cell, self.input_data, dtype=tf.float32)
 
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-0.005, maxval=0.005, dtype=tf.float32))
@@ -54,10 +45,9 @@ class Model(object):
 		else:
 			return np.zeros((self.arg.num_layers, self.arg.batch_size, self.arg.num_units))
 
-	def step(self, session, input_data, label_data=None, trainable=False, state=None):
+	def step(self, session, input_data, label_data=None, trainable=False):
 		input_feed = {}
 		input_feed[self.input_data] = input_data
-		input_feed[self.rnn_state] = state
 		if trainable:
 			input_feed[self.label_data] = label_data
 			output_var = [self.trainer, self.loss, self.prediction, self.cell_state]
