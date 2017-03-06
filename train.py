@@ -3,63 +3,6 @@ import argparse
 import sys
 import os
 
-def train(arg):
-	if arg.verbose:
-		print('Loading training data...')
-	price = data_processor.parse_high_frequency(arg.data)
-	if arg.verbose:
-		print('Number of data points: {}'.format(len(price)))
-	batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
-	if arg.verbose:
-		print('Finish loading data')
-	arg.input_length = batch_input[0].shape[1]
-	model = rnn.Model(arg, trainable=True)
-
-	config = tf.ConfigProto()
-	config.gpu_options.allow_growth = True
-
-	with tf.Session(config=config) as sess:
-		try:
-			sess.run(tf.global_variables_initializer())
-
-			if arg.load is not None:
-				model.load(sess, arg.load+'.model')
-
-			for it in range(arg.iter):
-				# training phase
-				total_loss = []
-				# Get the initial state for the rnn
-				prev_state = model.zero_state()
-				for i in range(len(batch_input)):
-					trainer,loss,prediction,curr_state = model.step(sess, batch_input[i], batch_output[i], trainable=True, state=prev_state)
-					prev_state = curr_state
-					total_loss.append(np.mean(loss))
-				if arg.save is not None:
-					if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
-						model.save(sess, arg.save+'.model')
-
-				# test phase
-				total_test_loss = []
-				correct = 0
-				# prev_state = model.zero_state()
-				for i in range(len(test_input)):
-					predict,curr_state = model.step(sess, test_input[i],state=prev_state)
-					prev_state = curr_state
-					loss = model.error(sess, predict, test_output[i])
-					total_test_loss.append(np.mean(loss))
-					c = 1 if 100 * predict * test_output[i] > 0 else 0
-					correct += c
-					print ("Predicted [{}]: {}".format(i,predict))
-				print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}/{}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct, len(test_input) * arg.batch_size))
-			if arg.save is not None:
-				model.save(sess, arg.save+'.model')
-		except KeyboardInterrupt:
-			print('Training interrupted by user')
-			if arg.save is not None:
-					model.save(sess, arg.save+'.model')
-
-#=====================================================================================================================
-
 parser = argparse.ArgumentParser(description="Multilayer RNN trainer")
 parser.add_argument('-D', '--data', type=str, help='Historical price data file to be parsed', required=True)
 parser.add_argument('-L', '--load', type=str, default=None, help='Load trained package')
@@ -97,6 +40,7 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import execute
+import matplotlib.pyplot as plt
 
 if arg.verbose:
 	print('Finish loading dependencies')
@@ -121,4 +65,73 @@ if arg.load is not None:
 	arg.price_epsilon = a.price_epsilon
 	if arg.verbose:
 			print('Config loaded from ' + arg.load + '.cfg')
-train(arg)
+
+if arg.verbose:
+	print('Loading training data...')
+price = data_processor.parse_high_frequency(arg.data)
+if arg.verbose:
+	print('Number of data points: {}'.format(len(price)))
+batch_input, test_input, batch_output, test_output = data_processor.get_batch_data(arg, price)
+if arg.verbose:
+	print('Finish loading data')
+arg.input_length = batch_input[0].shape[1]
+model = rnn.Model(arg, trainable=True)
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+
+training_error = []
+testing_error = []
+
+import time
+with tf.Session(config=config) as sess:
+	try:
+		sess.run(tf.global_variables_initializer())
+
+		if arg.load is not None:
+			model.load(sess, arg.load+'.model')
+
+		for it in range(arg.iter):
+			# training phase
+			total_loss = []
+			# Get the initial state for the rnn
+			prev_state = model.zero_state()
+			for i in range(len(batch_input)):
+				trainer,loss,prediction,curr_state = model.step(sess, batch_input[i], batch_output[i], trainable=True, state=prev_state)
+				prev_state = curr_state
+				total_loss.append(np.mean(loss))
+			if arg.save is not None:
+				if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
+					model.save(sess, arg.save+'.model')
+
+			total_time = 0
+			# test phase
+			total_test_loss = []
+			correct = 0
+			prev_state = model.zero_state()
+			for i in range(len(test_input)):
+				predict,curr_state = model.step(sess, test_input[i],state=prev_state)
+				prev_state = curr_state
+				start_time = time.time()
+				loss = model.error(sess, predict, test_output[i])
+				total_time += time.time() - start_time
+				total_test_loss.append(np.mean(loss))
+				c = 1 if 100 * predict * test_output[i] > 0 else 0
+				correct += c
+			print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}/{}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct, len(test_input) * arg.batch_size))
+			print ("Testing time {}".format(total_time))
+
+			training_error.append(np.mean(total_loss))
+			testing_error.append(np.mean(total_test_loss))
+
+		if arg.save is not None:
+			model.save(sess, arg.save+'.model')
+	except KeyboardInterrupt:
+		print('Training interrupted by user')
+		if arg.save is not None:
+				model.save(sess, arg.save+'.model')
+
+error_x = [i for i in range(len(training_error))]
+plt.plot(error_x, training_error, c='green')
+plt.plot(error_x, testing_error, c='red')
+plt.show()

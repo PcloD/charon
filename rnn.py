@@ -17,38 +17,52 @@ class Model(object):
 		if arg.num_layers > 1:
 			self.cell = tf.nn.rnn_cell.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
 
-		self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, arg.batch_size, arg.num_units])
-		unpacked_state = tf.unpack(self.rnn_state, axis=0)
-		input_rnn_state = tuple(unpacked_state)
+		if arg.lstm:
+			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, 2, arg.batch_size, arg.num_units])
+			unpacked_state = tf.unpack(self.rnn_state, axis=0)
+			input_rnn_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(unpacked_state[idx][0], unpacked_state[idx][1]) for idx in range(arg.num_layers)])
+		else:
+			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, arg.batch_size, arg.num_units])
+			unpacked_state = tf.unpack(self.rnn_state, axis=0)
+			input_rnn_state = tuple(unpacked_state)
 
 		# RNN cell update
-		self.outputs, self.cell_state = self.cell(self.input_data, input_rnn_state)
+		self.outputs, curr_state = self.cell(self.input_data, input_rnn_state)
+
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-0.005, maxval=0.005, dtype=tf.float32))
 		self.softmaxb = tf.Variable(tf.random_uniform([1, output_dim], minval=-0.001, maxval=0.001, dtype=tf.float32))
-		self.prediction = tf.tanh(tf.matmul(self.outputs, self.softmaxW) + self.softmaxb)
+		self.k = tf.Variable(tf.random_uniform([1], minval=0, maxval=2, dtype=tf.float32))
+		self.prediction = tf.reshape(self.k * (tf.matmul(self.outputs, self.softmaxW) + self.softmaxb), [arg.batch_size])
 
 		if trainable:
-			self.loss = tf.nn.l2_loss(self.label_data - self.prediction)
-			# self.loss = tf.squared_difference(self.label_data, self.prediction)
+			self.loss = tf.squared_difference(self.label_data, self.prediction)
 			trainable_vars = tf.trainable_variables()
 			opt = tf.train.AdamOptimizer(arg.learning_rate)
-			clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
-			self.trainer = opt.apply_gradients(zip(clipped_grads, trainable_vars))
-			# self.trainer = opt.minimize(self.loss, var_list=trainable_vars)
+			# clipped_grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, trainable_vars), arg.gradient_clip)
+			# self.trainer = opt.apply_gradients(zip(clipped_grads, trainable_vars))
+			self.trainer = opt.minimize(self.loss, var_list=trainable_vars)
 		self.saver = tf.train.Saver()
+
+		self.test_label = tf.placeholder(tf.float32, [arg.batch_size])
+		self.test_predict = tf.placeholder(tf.float32, [arg.batch_size])
+		self.test_loss = tf.nn.l2_loss(self.test_label - self.test_predict)
 	
 	def zero_state(self):
-		return np.zeros((self.arg.num_layers, self.arg.batch_size, self.arg.num_units))
+		if self.arg.lstm:
+			return np.zeros((self.arg.num_layers, 2, self.arg.batch_size, self.arg.num_units))
+		else:
+			return np.zeros((self.arg.num_layers, self.arg.batch_size, self.arg.num_units))
 
 	def step(self, session, input_data, label_data=None, trainable=False, state=None):
+		input_feed = {}
+		input_feed[self.input_data] = input_data
+		input_feed[self.rnn_state] = state
 		if trainable:
-			input_feed = {self.input_data: input_data, self.label_data:label_data}
+			input_feed[self.label_data] = label_data
 			output_var = [self.trainer, self.loss, self.prediction, self.cell_state]
 		else:
-			input_feed = {self.input_data: input_data}
 			output_var = [self.prediction, self.cell_state]
-		input_feed[self.rnn_state] = state
 		output = session.run(output_var, feed_dict=input_feed)
 		return output
 
@@ -57,8 +71,8 @@ class Model(object):
 		print("Model saved at {}".format(save_path))
 
 	def error(self, session, prediction, label):
-		loss = tf.nn.l2_loss(label-prediction)
-		return session.run(loss)
+		input_feed = {self.test_predict:prediction, self.test_label:label}
+		return session.run(self.test_loss, feed_dict=input_feed)
 
 	def load(self, session, file):
 		self.saver.restore(session, file)

@@ -1,6 +1,7 @@
 import numpy as np
 import datetime
-import math 
+import math
+import sys
 
 def parse_high_frequency(file):
     f = open(file, 'r')
@@ -64,7 +65,7 @@ def get_features_high_frequency(data):
         feature.append((avg-l) / avg)
     return output_feature
 
-def get_features_futures(data, liquidity_factor=20):
+def get_features_futures(data, liquidity_factor=100):
     output_feature = []
     for datum in data:
         feature=[]
@@ -72,9 +73,11 @@ def get_features_futures(data, liquidity_factor=20):
         current_time = datetime.datetime.fromtimestamp(int(timestamp) / 1000)
         settlement_time = datetime.datetime.fromtimestamp(int(settlement) / 1000)
         days_to_settlement = (settlement_time - current_time).days
-        daily_interest = (last/index) ** (1/days_to_settlement)
+        daily_interest = (last/index) ** (1/days_to_settlement) -1
         lmsr = liquidity_factor * math.log(math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
-        output_feature.append([last,high,low,buy,sell,hold,daily_interest,lmsr,ask1,ask2,ask3,bid1,bid2,bid3])
+        buy_price = math.exp(bid1/liquidity_factor) / (math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
+        sell_price = math.exp(ask1/liquidity_factor) / (math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
+        output_feature.append([last,high,low,buy,sell,hold,daily_interest,lmsr,buy_price,sell_price,ask1,ask2,ask3,bid1,bid2,bid3])
     return output_feature
 
 # percent move
@@ -90,7 +93,7 @@ def get_label_futures(data):
     label = []
     for i in range(len(data)-1):
         p1,p2 = data[i][2],data[i+1][2]
-        label.append(100 * (p2-p1)/p1)
+        label.append(100*(p2-p1)/p1)
     return label
 
 def get_label_pressure(price, price_epsilon, hold=0, sell=-1, buy=1):
@@ -156,3 +159,18 @@ def local_extrema(price):
                 inc = True
     local.append(len(price)-1)
     return local
+
+if __name__ == '__main__':
+    from bunch import Bunch
+
+    arg = Bunch()
+    arg.batch_size = 1
+    arg.verbose = False
+    arg.test_size = 0
+
+    price = parse_high_frequency(sys.argv[1])
+    batch_input, test_input, batch_output, test_output = get_batch_data(arg, price)
+    print(batch_output[1])
+    # test_file = open('test.txt', 'w')
+    # test_file.write('\n'.join(price))
+    # test_file.close()
