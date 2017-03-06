@@ -83,7 +83,6 @@ config.gpu_options.allow_growth = True
 training_error = []
 testing_error = []
 
-import time
 with tf.Session(config=config) as sess:
 	try:
 		sess.run(tf.global_variables_initializer())
@@ -104,7 +103,6 @@ with tf.Session(config=config) as sess:
 				if arg.save_freq != 0 and it % arg.save_freq == arg.save_freq - 1:
 					model.save(sess, arg.save+'.model')
 
-			total_time = 0
 			# test phase
 			total_test_loss = []
 			correct = 0
@@ -112,14 +110,11 @@ with tf.Session(config=config) as sess:
 			for i in range(len(test_input)):
 				predict,curr_state = model.step(sess, test_input[i],state=prev_state)
 				prev_state = curr_state
-				start_time = time.time()
 				loss = model.error(sess, predict, test_output[i])
-				total_time += time.time() - start_time
 				total_test_loss.append(np.mean(loss))
 				c = 1 if 100 * predict * test_output[i] > 0 else 0
 				correct += c
 			print("Iteration {} | Average training loss {} | Average testing loss {} | Correct guess {}/{}".format(it, np.mean(total_loss), np.mean(total_test_loss), correct, len(test_input) * arg.batch_size))
-			print ("Testing time {}".format(total_time))
 
 			training_error.append(np.mean(total_loss))
 			testing_error.append(np.mean(total_test_loss))

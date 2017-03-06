@@ -44,7 +44,7 @@ if saved_arg.verbose:
 
 model = lstm.Model(saved_arg, trainable=False)
 with tf.Session() as sess:
-	sess.run(tf.initialize_all_variables())
+	sess.run(tf.global_variables_initializer())
 	model.load(sess, saved_arg.load+'.model')
 	predictions = []
 	for b in batch_input:

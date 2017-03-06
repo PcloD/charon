@@ -71,7 +71,7 @@ class LSTMCell(tf.nn.rnn_cell.RNNCell):
 
   def __call__(self, x, state, scope=None):
     with tf.variable_scope(scope or type(self).__name__):
-      c, h = tf.split(1, 2, state)
+      c, h = tf.split(axis=1, num_or_size_splits=2, value=state)
 
       h_size = self.num_units
       x_size = x.get_shape().as_list()[1]
@@ -95,11 +95,11 @@ class LSTMCell(tf.nn.rnn_cell.RNNCell):
       bias = tf.get_variable('bias',
         [4 * self.num_units], initializer=tf.constant_initializer(0.0))
 
-      concat = tf.concat(1, [x, h])
-      W_full = tf.concat(0, [W_xh, W_hh])
+      concat = tf.concat(axis=1, values=[x, h])
+      W_full = tf.concat(axis=0, values=[W_xh, W_hh])
       hidden = tf.matmul(concat, W_full) + bias
 
-      i, j, f, o = tf.split(1, 4, hidden)
+      i, j, f, o = tf.split(axis=1, num_or_size_splits=4, value=hidden)
 
       if self.use_recurrent_dropout:
         g = tf.nn.dropout(tf.tanh(j), self.dropout_keep_prob)
@@ -109,7 +109,7 @@ class LSTMCell(tf.nn.rnn_cell.RNNCell):
       new_c = c*tf.sigmoid(f+self.forget_bias) + tf.sigmoid(i)*g
       new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
-      return new_h, tf.concat(1, [new_c, new_h]) # fuk tuples.
+      return new_h, tf.concat(axis=1, values=[new_c, new_h]) # fuk tuples.
 
 def layer_norm(x, scope="layer_norm", reuse=False, alpha_start=1.0, bias_start=0.0, epsilon = 1e-3):
   axes = [1]
@@ -197,7 +197,7 @@ class LayerNormLSTMCell(tf.nn.rnn_cell.RNNCell):
 
   def __call__(self, x, state, timestep = 0, scope=None):
     with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
-      h, c = tf.split(1, 2, state)
+      h, c = tf.split(axis=1, num_or_size_splits=2, value=state)
 
       h_size = self.num_units
       x_size = x.get_shape().as_list()[1]
@@ -220,12 +220,12 @@ class LayerNormLSTMCell(tf.nn.rnn_cell.RNNCell):
       # no bias, since there's a bias thing inside layer norm
       # and we don't wanna double task variables.
 
-      concat = tf.concat(1, [x, h]) # concat for speed.
-      W_full = tf.concat(0, [W_xh, W_hh])
+      concat = tf.concat(axis=1, values=[x, h]) # concat for speed.
+      W_full = tf.concat(axis=0, values=[W_xh, W_hh])
       concat = tf.matmul(concat, W_full) #+ bias # live life without garbage.
 
       # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-      i, j, f, o = tf.split(1, 4, concat)
+      i, j, f, o = tf.split(axis=1, num_or_size_splits=4, value=concat)
 
       i = layer_norm(i, 'ln_i')
       j = layer_norm(j, 'ln_j')
@@ -240,7 +240,7 @@ class LayerNormLSTMCell(tf.nn.rnn_cell.RNNCell):
       new_c = c*tf.sigmoid(f+self.forget_bias) + tf.sigmoid(i)*g
       new_h = tf.tanh(layer_norm(new_c, 'ln_c')) * tf.sigmoid(o)
     
-    return new_h, tf.concat(1, [new_h, new_c])
+    return new_h, tf.concat(axis=1, values=[new_h, new_c])
 
 class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
   '''
@@ -319,7 +319,7 @@ class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
         weight_start=0.00, use_bias=True, bias_start=1.0, scope="zw")
       alpha = super_linear(zw, num_units, init_w="constant",
         weight_start=init_gamma / embedding_size, use_bias=False, scope="alpha")
-      result = tf.mul(alpha, layer)
+      result = tf.multiply(alpha, layer)
       if use_bias:
         zb = super_linear(self.hyper_output, embedding_size, init_w="gaussian",
           weight_start=0.01, use_bias=False, bias_start=0.0, scope="zb")
@@ -330,10 +330,10 @@ class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
 
   def __call__(self, x, state, timestep = 0, scope=None):
     with tf.variable_scope(scope or type(self).__name__):
-      total_h, total_c = tf.split(1, 2, state)
+      total_h, total_c = tf.split(axis=1, num_or_size_splits=2, value=state)
       h = total_h[:, 0:self.num_units]
       c = total_c[:, 0:self.num_units]
-      self.hyper_state = tf.concat(1, [total_h[:,self.num_units:], total_c[:,self.num_units:]])
+      self.hyper_state = tf.concat(axis=1, values=[total_h[:,self.num_units:], total_c[:,self.num_units:]])
 
       x_size = x.get_shape().as_list()[1]
       self._input_size = x_size
@@ -358,7 +358,7 @@ class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
         [4*self.num_units], initializer=tf.constant_initializer(0.0))
 
       # concatenate the input and hidden states for hyperlstm input
-      hyper_input = tf.concat(1, [x, h])
+      hyper_input = tf.concat(axis=1, values=[x, h])
       hyper_output, hyper_new_state = self.hyper_cell(hyper_input, self.hyper_state)
       self.hyper_output = hyper_output
       self.hyper_state = hyper_new_state
@@ -367,21 +367,21 @@ class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
       hh = tf.matmul(h, W_hh)
 
       # split Wxh contributions
-      ix, jx, fx, ox = tf.split(1, 4, xh)
+      ix, jx, fx, ox = tf.split(axis=1, num_or_size_splits=4, value=xh)
       ix = self.hyper_norm(ix, 'hyper_ix', use_bias=False)
       jx = self.hyper_norm(jx, 'hyper_jx', use_bias=False)
       fx = self.hyper_norm(fx, 'hyper_fx', use_bias=False)
       ox = self.hyper_norm(ox, 'hyper_ox', use_bias=False)
 
       # split Whh contributions
-      ih, jh, fh, oh = tf.split(1, 4, hh)
+      ih, jh, fh, oh = tf.split(axis=1, num_or_size_splits=4, value=hh)
       ih = self.hyper_norm(ih, 'hyper_ih', use_bias=True)
       jh = self.hyper_norm(jh, 'hyper_jh', use_bias=True)
       fh = self.hyper_norm(fh, 'hyper_fh', use_bias=True)
       oh = self.hyper_norm(oh, 'hyper_oh', use_bias=True)
 
       # split bias
-      ib, jb, fb, ob = tf.split(0, 4, bias) # bias is to be broadcasted.
+      ib, jb, fb, ob = tf.split(axis=0, num_or_size_splits=4, value=bias) # bias is to be broadcasted.
 
       # i = input_gate, j = new_input, f = forget_gate, o = output_gate
       i = ix + ih + ib
@@ -402,10 +402,10 @@ class HyperLSTMCell(tf.nn.rnn_cell.RNNCell):
       new_c = c*tf.sigmoid(f+self.forget_bias) + tf.sigmoid(i)*g
       new_h = tf.tanh(self.layer_norm(new_c, 'ln_c')) * tf.sigmoid(o)
     
-      hyper_h, hyper_c = tf.split(1, 2, hyper_new_state)
-      new_total_h = tf.concat(1, [new_h, hyper_h])
-      new_total_c = tf.concat(1, [new_c, hyper_c])
-      new_total_state = tf.concat(1, [new_total_h, new_total_c])
+      hyper_h, hyper_c = tf.split(axis=1, num_or_size_splits=2, value=hyper_new_state)
+      new_total_h = tf.concat(axis=1, values=[new_h, hyper_h])
+      new_total_c = tf.concat(axis=1, values=[new_c, hyper_c])
+      new_total_state = tf.concat(axis=1, values=[new_total_h, new_total_c])
     return new_h, new_total_state
 
 class LayerNormRNNCell(tf.nn.rnn_cell.RNNCell):
@@ -453,8 +453,8 @@ class LayerNormRNNCell(tf.nn.rnn_cell.RNNCell):
       # no bias, since there's a bias thing inside layer norm
       # and we don't wanna double task variables.
 
-      concat = tf.concat(1, [x, h]) # concat for speed.
-      W_full = tf.concat(0, [W_xh, W_hh])
+      concat = tf.concat(axis=1, values=[x, h]) # concat for speed.
+      W_full = tf.concat(axis=0, values=[W_xh, W_hh])
       concat = tf.matmul(concat, W_full)
 
       new_h = self.activation(layer_norm(concat, 'ln_h'))
@@ -540,8 +540,8 @@ class FastRNNCell(tf.nn.rnn_cell.RNNCell):
       # no bias, since there's a bias thing inside layer norm
       # and we don't wanna double task variables.
 
-      concat = tf.concat(1, [x, h]) # concat for speed.
-      W_full = tf.concat(0, [W_xh, W_hh])
+      concat = tf.concat(axis=1, values=[x, h]) # concat for speed.
+      W_full = tf.concat(axis=0, values=[W_xh, W_hh])
 
       # preliminary vector (eq 2 has no non-linearity, I go with that)
       h0 = tf.matmul(concat, W_full)
@@ -551,8 +551,8 @@ class FastRNNCell(tf.nn.rnn_cell.RNNCell):
       h0 = tf.reshape(h0, [batch_size, 1, h_size])
       
       # eq4, already scaled by sqrt(lambda_factor) in both lines
-      h1 = tf.batch_matmul(h0, tf.transpose(state, perm=[0, 2, 1]))
-      h1 = tf.batch_matmul(h1, state)
+      h1 = tf.matmul(h0, tf.transpose(state, perm=[0, 2, 1]))
+      h1 = tf.matmul(h1, state)
 
       h0 = tf.reshape(h0, [batch_size, h_size])
       new_h = tf.reshape(h1, [batch_size, h_size])
@@ -563,7 +563,7 @@ class FastRNNCell(tf.nn.rnn_cell.RNNCell):
         new_h = self.activation(layer_norm(new_h, 'ln_h', reuse=(True if i > 0 else False)))
 
       h_insert = tf.reshape(new_h, [batch_size, 1, h_size])
-      state = tf.concat(1, [h_insert, state])  # put in most recent state in the front
+      state = tf.concat(axis=1, values=[h_insert, state])  # put in most recent state in the front
       state = state[:, 0:self.max_history, :]  # kick out the last hidden state
 
       state = tf.reshape(state, [batch_size, max_history*h_size])

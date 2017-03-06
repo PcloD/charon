@@ -10,24 +10,24 @@ class Model(object):
 		self.label_data = tf.placeholder(tf.float32, [arg.batch_size])
 
 		if arg.lstm:
-			self.cell = tf.nn.rnn_cell.BasicLSTMCell(arg.num_units, state_is_tuple=True)
+			self.cell = tf.contrib.rnn.BasicLSTMCell(arg.num_units, state_is_tuple=True)
 		else:
-			self.cell = tf.nn.rnn_cell.GRUCell(arg.num_units)
+			self.cell = tf.contrib.rnn.GRUCell(arg.num_units)
 
 		if arg.num_layers > 1:
-			self.cell = tf.nn.rnn_cell.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
+			self.cell = tf.contrib.rnn.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
 
 		if arg.lstm:
 			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, 2, arg.batch_size, arg.num_units])
-			unpacked_state = tf.unpack(self.rnn_state, axis=0)
-			input_rnn_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(unpacked_state[idx][0], unpacked_state[idx][1]) for idx in range(arg.num_layers)])
+			unpacked_state = tf.unstack(self.rnn_state, axis=0)
+			input_rnn_state = tuple([tf.contrib.rnn.LSTMStateTuple(unpacked_state[idx][0], unpacked_state[idx][1]) for idx in range(arg.num_layers)])
 		else:
 			self.rnn_state = tf.placeholder(tf.float32, [arg.num_layers, arg.batch_size, arg.num_units])
-			unpacked_state = tf.unpack(self.rnn_state, axis=0)
+			unpacked_state = tf.unstack(self.rnn_state, axis=0)
 			input_rnn_state = tuple(unpacked_state)
 
 		# RNN cell update
-		self.outputs, curr_state = self.cell(self.input_data, input_rnn_state)
+		self.outputs, self.cell_state = self.cell(self.input_data, input_rnn_state)
 
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-0.005, maxval=0.005, dtype=tf.float32))

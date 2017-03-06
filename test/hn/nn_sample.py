@@ -12,7 +12,7 @@ X_test = joblib.load('saves/data/test_in.csv_feature_vectors.pkl')
 model = nn.Model(400, 4, [50,60,30], False)
 
 with tf.Session() as sess:
-	sess.run(tf.initialize_all_variables())
+	sess.run(tf.global_variables_initializer())
 	model.load(sess, 'saves/model/nn563.model')
 
 	pred = model.step(sess, X_test)
