@@ -18,13 +18,13 @@ class Model(object):
 			self.cell = tf.contrib.rnn.MultiRNNCell([self.cell] * arg.num_layers, state_is_tuple=True)
 
 		# RNN cell update
-		self.outputs, self.cell_state = self.dynamic_rnn(self.cell, self.input_data, dtype=tf.float32)
+		self.outputs, self.cell_state = tf.nn.dynamic_rnn(self.cell, self.input_data, dtype=tf.float32)
 
 		# Map the result to a single scalar
 		self.softmaxW = tf.Variable(tf.random_uniform([arg.num_units, output_dim], minval=-0.005, maxval=0.005, dtype=tf.float32))
 		self.softmaxb = tf.Variable(tf.random_uniform([1, output_dim], minval=-0.001, maxval=0.001, dtype=tf.float32))
 		self.k = tf.Variable(tf.random_uniform([1], minval=0, maxval=2, dtype=tf.float32))
-		self.prediction = tf.reshape(self.k * (tf.matmul(self.outputs, self.softmaxW) + self.softmaxb), [arg.batch_size])
+		self.prediction = self.k * (tf.matmul(self.outputs, self.softmaxW) + self.softmaxb)
 
 		if trainable:
 			self.loss = tf.squared_difference(self.label_data, self.prediction)

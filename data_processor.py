@@ -30,9 +30,8 @@ def read_label(label_file):
     return price, int(data[1].strip('\n')), list(map(int, data[2].split(',')))
 
 def get_batch_data(arg, price):
-    # x,y = get_features_high_frequency(price[:-1]), get_label_high_frequency(price)
-    x,y = get_features_futures(price[:-1]), get_label_futures(price)
-
+    x,feature_size = get_features_futures(price[:-1], arg)
+    y = get_label_futures(price)
     assert len(x) == len(y)
 
     # change to numpy array
@@ -48,7 +47,7 @@ def get_batch_data(arg, price):
     num_bin = len(x) / arg.batch_size
     x_split, y_split = np.split(x, num_bin), np.split(y, num_bin)
     pivot = int(len(x_split) * (1-arg.test_size))
-    return x_split[:pivot], x_split[pivot:], y_split[:pivot], y_split[pivot:]
+    return x_split[:pivot], x_split[pivot:], y_split[:pivot], y_split[pivot:], feature_size
 
 def get_features_high_frequency(data):
     """ data t-by-4 matrix or list """
@@ -65,8 +64,8 @@ def get_features_high_frequency(data):
         feature.append((avg-l) / avg)
     return output_feature
 
-def get_features_futures(data, liquidity_factor=100):
-    output_feature = []
+def get_features_futures(data, arg, liquidity_factor=100):
+    features = []
     for datum in data:
         feature=[]
         timestamp,settlement,last,high,low,buy,sell,hold,index,ask1,ask2,ask3,bid1,bid2,bid3 = datum
@@ -77,8 +76,14 @@ def get_features_futures(data, liquidity_factor=100):
         lmsr = liquidity_factor * math.log(math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
         buy_price = math.exp(bid1/liquidity_factor) / (math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
         sell_price = math.exp(ask1/liquidity_factor) / (math.exp(ask1/liquidity_factor) + math.exp(bid1/liquidity_factor))
-        output_feature.append([last,high,low,buy,sell,hold,daily_interest,lmsr,buy_price,sell_price,ask1,ask2,ask3,bid1,bid2,bid3])
-    return output_feature
+        features.append([last,high,low,buy,sell,hold,daily_interest,lmsr,buy_price,sell_price,ask1,ask2,ask3,bid1,bid2,bid3])
+    output_feature = []
+    for i in range(len(features)):
+        datum = features[max(0, i - arg.input_length + 1):i+1]
+        # pad 0 for the first few instances
+        datum = np.pad(datum, ((0,0),(arg.input_length - len(datum),0)), 'constant', constant_values=0)
+        output_feature.append(datum)
+    return output_feature, len(features[0])
 
 # percent move
 def get_label_high_frequency(price):
